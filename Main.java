@@ -1,6 +1,14 @@
 import java.util.Scanner;
 
 public class Main {
+
+    public static void lines(int lines, String lineType) {
+        for (int i = 0; i < lines; i++) {
+            System.out.print(lineType);
+        }
+        System.out.println();
+    }
+    
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         ProcessCommands processCommands = new ProcessCommands();

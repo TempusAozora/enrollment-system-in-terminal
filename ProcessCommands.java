@@ -16,7 +16,7 @@ public class ProcessCommands {
         String cmd = parts[0].toUpperCase(), args = (parts.length > 1) ? parts[1] : "";
 
         if (this.commands.containsKey(cmd)) {
-             try {
+            try {
                 Method method = commands.get(cmd);
                 Object res = method.invoke(null, cmd, args);
                 return (res instanceof String) ? (String) res : cmd + " Success";

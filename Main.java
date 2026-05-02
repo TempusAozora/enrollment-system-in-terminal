@@ -2,13 +2,7 @@ import java.util.Scanner;
 
 public class Main {
 
-    public static void lines(int lines, String lineType) {
-        for (int i = 0; i < lines; i++) {
-            System.out.print(lineType);
-        }
-        System.out.println();
-    }
-    
+    // Main class contains the loop to keep the program running. Most of the code is in "ProcessCommands" class.
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         ProcessCommands processCommands = new ProcessCommands();

@@ -8,7 +8,7 @@ import java.io.FileReader;
 public class ProcessCommands {
     private Map<String, Method> commands = new HashMap<>();
 
-    public static String createRowLine(String str1, String str2, int[] lengths) { // for formatting row line
+    static String createRowLine(String str1, String str2, int[] lengths) { // for formatting row line
         int excess = 2;
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < lengths.length; i++) {

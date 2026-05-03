@@ -1,1 +1,3 @@
-"# enrollment-system-in-terminal" 
+# enrollment-system-in-terminal
+
+Requirements: Java 21

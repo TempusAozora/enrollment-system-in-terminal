@@ -7,7 +7,7 @@ import java.io.FileReader;
 
 public class ProcessCommands {
     private Map<String, Method> commands = new HashMap<>();
-
+    
     static String createRowLine(String str1, String str2, int[] lengths) { // for formatting row line
         int excess = 2;
         StringBuilder sb = new StringBuilder();
@@ -48,14 +48,14 @@ public class ProcessCommands {
 }
 
 class Command {
-    public static void ADD(String cmd, String args) {
+    static void ADD(String cmd, String args) {
         // Add logic here
     }
-    public static void REMOVE(String cmd, String args) {
+    static void REMOVE(String cmd, String args) {
         // Remove logic here
     }
 
-    public static void HELP(String cmd, String args) {
+    static void HELP(String cmd, String args) {
         System.out.println(
             "ADD id, full_name, course, year_level, gender - adds a row." + "\n" +
             "REMOVE [id=? || full_name=? || ...] - removes a row with given conditions. To clear the table, type 'REMOVE *'" + "\n" +
@@ -63,7 +63,7 @@ class Command {
         );
     }
 
-    public static void DISPLAY(String cmd, String args) {
+    static void DISPLAY(String cmd, String args) {
         String DELIMITER = ",";
         List<String[]> data = new ArrayList<>();
         int[] maxColumnLengths = null;
@@ -116,7 +116,7 @@ class Command {
         System.out.println();
     }
 
-    public static String MODIFY(String cmd, String args) {
+    static String MODIFY(String cmd, String args) {
         return cmd + " " + args + " (Work in progress)";
     }
 }

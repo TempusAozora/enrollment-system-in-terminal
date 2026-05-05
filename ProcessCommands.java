@@ -23,6 +23,11 @@ public class ProcessCommands {
         return sb.toString();
     }
 
+    static String[] parseArgs(String args) {
+        // Do this
+        return new String[] {};
+    }
+
     public ProcessCommands() {
         for (Method method : Command.class.getDeclaredMethods()) {
             this.commands.put(method.getName(), method);
@@ -63,7 +68,11 @@ class Command {
         );
     }
 
-    static void DISPLAY(String cmd, String args) {
+    static String DISPLAY(String cmd, String args) {
+        if (args.length() == 0) {
+            return "Argument/s needed for display";
+        }
+
         String DELIMITER = ",";
         List<String[]> data = new ArrayList<>();
         int[] maxColumnLengths = null;
@@ -78,22 +87,36 @@ class Command {
                 br = new BufferedReader(new FileReader("./saved/TableDataSample.csv"));
             } catch(IOException exception) {
                 System.out.print("\n\nTable data file not found." + " " + exception + "\n\n");
-                return;
+                return "";
             }
         }
 
         try {
             String line;
+            int idx = 0;
+            Map<String, Integer> headers = new HashMap<>();
+
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(DELIMITER);
-                if (maxColumnLengths == null) {
-                    maxColumnLengths = new int[values.length];
+                if (idx == 0) {
+                    for (int i=0; i < values.length; i++) {
+                        headers.put(values[i], i);
+                    }
                 }
-                for (int i=0; i<values.length; i++) {
-                    maxColumnLengths[i] = values[i].length() > maxColumnLengths[i] ? values[i].length() : maxColumnLengths[i];
+                
+                if (headers.containsKey(args)) {
+                    if (maxColumnLengths == null) maxColumnLengths = new int[1];
+                    maxColumnLengths[0] = values[0].length() > maxColumnLengths[0] ? values[0].length() : maxColumnLengths[0];
+                    data.add(new String[] {values[headers.get(args)]});
+                } else if (args.charAt(0) == '*' || idx == 0) {    
+                    if (maxColumnLengths == null) maxColumnLengths = new int[values.length];                
+                    for (int i=0; i<values.length; i++) {
+                        maxColumnLengths[i] = values[i].length() > maxColumnLengths[i] ? values[i].length() : maxColumnLengths[i];
+                    }
+                    data.add(values);
                 }
-    
-                data.add(values);
+
+                idx++;
             }
         } catch(IOException e) {
             System.out.print("\n\n" + e + "\n\n");
@@ -113,7 +136,7 @@ class Command {
             System.out.format("|%n");
         }
         System.out.format(rowSeparator);
-        System.out.println();
+        return "";
     }
 
     static String MODIFY(String cmd, String args) {

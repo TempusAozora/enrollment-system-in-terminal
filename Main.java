@@ -22,14 +22,13 @@ public class Main {
             System.out.print("smart-enrollment-system> ");
         }
 
-        System.out.println("Closing");
         scanner.close();
     }
 
     private static void handleInterrupts() {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
-                System.err.println(); // prints extra line when the program is interrupted.
+                System.out.println(); // prints extra line when the program is interrupted.
             }
         });
     }

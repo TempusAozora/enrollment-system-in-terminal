@@ -24,8 +24,18 @@ public class ProcessCommands {
     }
 
     static String[] parseArgs(String args) {
-        // Do this
-        return new String[] {};
+        if (args == null || args.trim().isEmpty()) {
+            return new String[0];
+        }
+        
+        String[] com_part = args.split(",");
+
+        for(int i = 0; i<com_part.length; i++) {
+            System.out.println(com_part[i]);
+            com_part[i] = com_part[i].trim();
+        }
+
+        return com_part; 
     }
 
     public ProcessCommands() {
@@ -41,7 +51,7 @@ public class ProcessCommands {
         if (this.commands.containsKey(cmd)) {
             try {
                 Method method = commands.get(cmd);
-                Object res = method.invoke(null, cmd, args);
+                Object res = method.invoke(null, cmd, parseArgs(args));
                 return (res instanceof String) ? (String) res : cmd + " Success";
             } catch (Exception e) {
                 e.printStackTrace();
@@ -53,14 +63,14 @@ public class ProcessCommands {
 }
 
 class Command {
-    static void ADD(String cmd, String args) {
+    static void ADD(String cmd, String[] args) {
         // Add logic here
     }
-    static void REMOVE(String cmd, String args) {
+    static void REMOVE(String cmd, String[] args) {
         // Remove logic here
     }
 
-    static void HELP(String cmd, String args) {
+    static void HELP(String cmd, String[] args) {
         System.out.println(
             "ADD id, full_name, course, year_level, gender - adds a row." + "\n" +
             "REMOVE [id=? || full_name=? || ...] - removes a row with given conditions. To clear the table, type 'REMOVE *'" + "\n" +
@@ -68,14 +78,13 @@ class Command {
         );
     }
 
-    static String DISPLAY(String cmd, String args) {
-        if (args.length() == 0) {
+    static String DISPLAY(String cmd, String[] args) {
+        if (args.length == 0) {
             return "Argument/s needed for display";
         }
 
         String DELIMITER = ",";
         List<String[]> data = new ArrayList<>();
-        int[] maxColumnLengths = null;
 
         // read CSV file
         BufferedReader br;
@@ -91,32 +100,54 @@ class Command {
             }
         }
 
+        int[] maxColumnLengths = null;
         try {
-            String line;
-            int idx = 0;
-            Map<String, Integer> headers = new HashMap<>();
+            String line = br.readLine();
+            String[] headerArrayAll = line.split(DELIMITER);
+
+            List<Integer> maxColumnList = new ArrayList<>();
+            List<Integer> idxMap = new ArrayList<>();
+            
+            for (int i=0; i < headerArrayAll.length; i++) {
+                String col_name = headerArrayAll[i];
+                if (args[0].charAt(0) == '*') {
+                    idxMap.add(i);
+                } else {
+                    for (String arg : args) {
+                        if (col_name.equals(arg)) {
+                            idxMap.add(i);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (idxMap.size() == 0) {
+                return "Column not found";
+            }
+            
+            maxColumnLengths = new int[idxMap.size()];
+            String[] headers = new String[idxMap.size()];
+            int tmp_i = 0;
+
+            for (int idx : idxMap) {
+                headers[tmp_i] = headerArrayAll[idx];
+                maxColumnLengths[tmp_i] = headerArrayAll[idx].length();
+                tmp_i++;
+            }
+            data.add(headers);
 
             while ((line = br.readLine()) != null) {
-                String[] values = line.split(DELIMITER);
-                if (idx == 0) {
-                    for (int i=0; i < values.length; i++) {
-                        headers.put(values[i], i);
-                    }
-                }
-                
-                if (headers.containsKey(args)) {
-                    if (maxColumnLengths == null) maxColumnLengths = new int[1];
-                    maxColumnLengths[0] = values[0].length() > maxColumnLengths[0] ? values[0].length() : maxColumnLengths[0];
-                    data.add(new String[] {values[headers.get(args)]});
-                } else if (args.charAt(0) == '*' || idx == 0) {    
-                    if (maxColumnLengths == null) maxColumnLengths = new int[values.length];                
-                    for (int i=0; i<values.length; i++) {
-                        maxColumnLengths[i] = values[i].length() > maxColumnLengths[i] ? values[i].length() : maxColumnLengths[i];
-                    }
-                    data.add(values);
+                String[] raw_values = line.split(DELIMITER);
+                String[] values = new String[idxMap.size()];
+
+                int i = 0;
+                for (int idx : idxMap) {
+                    values[i] = raw_values[idx];
+                    i++;
                 }
 
-                idx++;
+                data.add(values);                
             }
         } catch(IOException e) {
             System.out.print("\n\n" + e + "\n\n");
@@ -143,4 +174,3 @@ class Command {
         return cmd + " " + args + " (Work in progress)";
     }
 }
-

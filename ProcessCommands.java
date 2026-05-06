@@ -23,21 +23,6 @@ public class ProcessCommands {
         return sb.toString();
     }
 
-    static String[] parseArgs(String args) {
-        if (args == null || args.trim().isEmpty()) {
-            return new String[0];
-        }
-        
-        String[] com_part = args.split(",");
-
-        for(int i = 0; i<com_part.length; i++) {
-            System.out.println(com_part[i]);
-            com_part[i] = com_part[i].trim();
-        }
-
-        return com_part; 
-    }
-
     public ProcessCommands() {
         for (Method method : Command.class.getDeclaredMethods()) {
             this.commands.put(method.getName(), method);
@@ -51,7 +36,7 @@ public class ProcessCommands {
         if (this.commands.containsKey(cmd)) {
             try {
                 Method method = commands.get(cmd);
-                Object res = method.invoke(null, cmd, parseArgs(args));
+                Object res = method.invoke(null, cmd, Parser.parse(args));
                 return (res instanceof String) ? (String) res : cmd + " Success";
             } catch (Exception e) {
                 e.printStackTrace();
@@ -61,6 +46,34 @@ public class ProcessCommands {
         return "Command not found!";
     }
 }
+
+// Work in progress
+class Parser {
+    static String[] parse(String args) {
+        if (args == null || args.trim().isEmpty()) {
+            return new String[0];
+        }
+        
+        String[] com_part = args.split(",");
+
+        for(int i = 0; i<com_part.length; i++) {
+            com_part[i] = com_part[i].trim();
+        }
+
+        return com_part; 
+    }
+}
+
+// Split the statement for parsing
+class Tokenizer {
+
+}
+
+// handle CSV logic here e.g reading, adding, removing data
+class CSV {
+    
+}
+
 
 class Command {
     static void ENROLL(String cmd, String[] args) {

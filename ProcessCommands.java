@@ -63,10 +63,10 @@ public class ProcessCommands {
 }
 
 class Command {
-    static void ADD(String cmd, String[] args) {
+    static void ENROLL(String cmd, String[] args) {
         // Add logic here
     }
-    static void REMOVE(String cmd, String[] args) {
+    static void UNENROLL(String cmd, String[] args) {
         // Remove logic here
     }
 
@@ -95,8 +95,7 @@ class Command {
             try {
                 br = new BufferedReader(new FileReader("./saved/TableDataSample.csv"));
             } catch(IOException exception) {
-                System.out.print("\n\nTable data file not found." + " " + exception + "\n\n");
-                return "";
+                return "\n\nTable data file not found." + " " + exception + "\n\n";
             }
         }
 
@@ -150,7 +149,7 @@ class Command {
                 data.add(values);                
             }
         } catch(IOException e) {
-            System.out.print("\n\n" + e + "\n\n");
+            return "\n\n" + e + "\n\n";
         }
 
         // Create row line

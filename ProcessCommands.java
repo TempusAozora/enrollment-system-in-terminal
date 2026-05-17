@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.io.FileReader;
 
 public class ProcessCommands {
-    private Map<String, Method> commands = new HashMap<>();
-    
     static String createRowLine(String str1, String str2, int[] lengths) { // for formatting row line
         int excess = 2;
         StringBuilder sb = new StringBuilder();
@@ -22,28 +20,19 @@ public class ProcessCommands {
 
         return sb.toString();
     }
-
-    public ProcessCommands() {
-        for (Method method : Command.class.getDeclaredMethods()) {
-            this.commands.put(method.getName(), method);
-        }
-    }
     
     public String process(String str) {
-        String[] parts = str.split(" ", 2);
+        String[] parts = str.split("\\s+", 2); // get whitespace
         String cmd = parts[0].toUpperCase(), args = (parts.length > 1) ? parts[1] : "";
 
-        if (this.commands.containsKey(cmd)) {
-            try {
-                Method method = commands.get(cmd);
-                Object res = method.invoke(null, cmd, Parser.parse(args));
-                return (res instanceof String) ? (String) res : cmd + " Success";
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        try {
+            Method method = Command.class.getDeclaredMethod(cmd, String.class, String[].class);
+            Object res = method.invoke(null, cmd, Parser.parse(args));
+            return (res instanceof String) ? (String) res : cmd + " Success";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Command not found! ";
         }
-
-        return "Command not found!";
     }
 }
 
@@ -64,14 +53,46 @@ class Parser {
     }
 }
 
-// Split the statement for parsing
-class Tokenizer {
-
-}
-
 // handle CSV logic here e.g reading, adding, removing data
 class CSV {
-    
+    public List<String[]> data;
+    public String[] header;
+
+    CSV(String filePath) { // initialize CSV
+        String DELIMITER = ",";
+
+        this.data = new ArrayList<>();
+        BufferedReader br;
+
+        try {
+            br = new BufferedReader(new FileReader(filePath));
+            this.header = br.readLine().split(DELIMITER);
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(DELIMITER);
+                data.add(values);                
+            }
+        } catch(IOException e) {
+            System.out.print(e);
+        }
+    }
+
+    public int getHeaderIdx(String headerName) {
+        for (int i = 0; i < this.header.length; i++) {
+            if (this.header[i].equals(headerName)) return i; 
+        }
+        return -1;
+    }
+
+    public int[] getColumnLengths(int[] headerIdx) {
+        int[] lengths = new int[headerIdx.length];
+        for (int i = 0; i < headerIdx.length; i++) {
+            int idx = headerIdx[i];
+            lengths[i] = this.header[idx].length();
+        }
+        return lengths;
+    }
 }
 
 
@@ -96,85 +117,84 @@ class Command {
             return "Argument/s needed for display";
         }
 
-        String DELIMITER = ",";
-        List<String[]> data = new ArrayList<>();
+        // Parse arguments
+        CSV csvData = new CSV("./saved/TableDataSample.csv");
+        
+        List<Integer> headerList = new ArrayList<Integer>();
+        List<Object[]> filterRow = new ArrayList<Object[]>();
 
-        // read CSV file
-        BufferedReader br;
-        try {
-            br = new BufferedReader(new FileReader("./saved/TableData.csv"));
-        } catch(IOException e) { // if TableData.csv is not found, use TableDataSample.csv
-            System.out.print("\n\nPrimary table data file not found. Using example file.\n\n");
-            try {
-                br = new BufferedReader(new FileReader("./saved/TableDataSample.csv"));
-            } catch(IOException exception) {
-                return "\n\nTable data file not found." + " " + exception + "\n\n";
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            int idx = csvData.getHeaderIdx(arg);
+            if (arg.charAt(0) == '*') {
+                for (int j = 0; j < csvData.header.length; j++) {
+                    headerList.add(j);
+                }
+            } else if (idx != -1) {
+                headerList.add(idx);
+            } else if (arg.contains("=")) {
+                String[] parts = arg.split("=");
+                String key = parts[0];
+                String value = parts[1];
+
+                idx = csvData.getHeaderIdx(key);
+
+                if (idx == -1) {
+                    System.out.println("header \"" + key + "\" not found.");
+                    continue;
+                }
+
+                // [index, value]
+                Object[] filterValues = new Object[2];
+                filterValues[0] = idx;
+                filterValues[1] = value;
+
+                filterRow.add(filterValues);
+            } else {
+                System.out.println("header \"" + arg + "\" not found.");
             }
         }
 
-        int[] maxColumnLengths = null;
-        try {
-            String line = br.readLine();
-            String[] headerArrayAll = line.split(DELIMITER);
-
-            List<Integer> maxColumnList = new ArrayList<>();
-            List<Integer> idxMap = new ArrayList<>();
-            
-            for (int i=0; i < headerArrayAll.length; i++) {
-                String col_name = headerArrayAll[i];
-                if (args[0].charAt(0) == '*') {
-                    idxMap.add(i);
-                } else {
-                    for (String arg : args) {
-                        if (col_name.equals(arg)) {
-                            idxMap.add(i);
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (idxMap.size() == 0) {
-                return "Column not found";
-            }
-            
-            maxColumnLengths = new int[idxMap.size()];
-            String[] headers = new String[idxMap.size()];
-            int tmp_i = 0;
-
-            for (int idx : idxMap) {
-                headers[tmp_i] = headerArrayAll[idx];
-                maxColumnLengths[tmp_i] = headerArrayAll[idx].length();
-                tmp_i++;
-            }
-            data.add(headers);
-
-            while ((line = br.readLine()) != null) {
-                String[] raw_values = line.split(DELIMITER);
-                String[] values = new String[idxMap.size()];
-
-                int i = 0;
-                for (int idx : idxMap) {
-                    values[i] = raw_values[idx];
-                    i++;
-                }
-
-                data.add(values);                
-            }
-        } catch(IOException e) {
-            return "\n\n" + e + "\n\n";
+        if (headerList.size() == 0) {
+            return "No valid header data";
         }
+        
+        // convert Integer list to int array
+        int[] header = headerList.stream().mapToInt(Integer::valueOf).toArray();
+        int[] maxColumnLengths = csvData.getColumnLengths(header);
 
         // Create row line
         String rowSeparator = ProcessCommands.createRowLine("-", "+", maxColumnLengths);
 
+        // Display header
+        System.out.format(rowSeparator);
+        for (int i = 0; i < header.length; i++) {
+            String h = csvData.header[header[i]];
+            System.out.format("| %-" + maxColumnLengths[i] + "s ", h);
+        }
+        System.out.format("|%n");
+
         // Display data
-        for (int i = 0; i < data.size(); i++) {
-            String[] row = data.get(i);
+        for (int i = 0; i < csvData.data.size(); i++) {
+            String[] row = csvData.data.get(i);
+            
+            boolean match = true;
+            for (int j = 0; j < filterRow.size(); j++) {
+                int idx = (int) filterRow.get(j)[0];
+                String value = (String) filterRow.get(j)[1];
+
+                if (!value.equals("*") && !row[idx].equals(value)) {
+                    match = false;
+                    break;
+                }
+            }
+            
+            if (!match) continue;
             System.out.format(rowSeparator);
 
-            for (int j = 0; j < row.length; j++) {
-                System.out.format("| %-" + maxColumnLengths[j] + "s ", row[j]);
+            for (int j = 0; j < header.length; j++) {
+                String data = row[header[j]];
+                System.out.format("| %-" + maxColumnLengths[j] + "s ", data);
             }
             System.out.format("|%n");
         }

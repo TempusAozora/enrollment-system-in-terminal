@@ -1,3 +1,4 @@
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -6,6 +7,29 @@ import java.io.IOException;
 import java.io.FileReader;
 
 public class ProcessCommands {
+    public String process(String str) {
+        Token[] tokens;
+        try { // tokenize the string
+            tokens = Token.tokenize(str);
+        } catch (RuntimeException e) {
+            return e.getMessage();
+        }
+        
+        String cmd = tokens[0].value.toUpperCase();
+
+        try { // run the method from input command.
+            Method method = Command.class.getDeclaredMethod(cmd, String.class, Token[].class);
+            Object res = method.invoke(null, cmd, tokens);
+            return (res instanceof String) ? (String) res : cmd + " Success";
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace(); 
+            return "Command not found!";
+        }
+    }
+}
+
+// getColumnLengths(): For display command. From array of indices, get the length of each column for display.
+class Formatter {
     static String createRowLine(String str1, String str2, int[] lengths) { // for formatting row line
         int excess = 2;
         StringBuilder sb = new StringBuilder();
@@ -20,58 +44,148 @@ public class ProcessCommands {
 
         return sb.toString();
     }
-    
-    public String process(String str) {
-        String[] parts = str.split("\\s+", 2); // get whitespace
-        String cmd = parts[0].toUpperCase(), args = (parts.length > 1) ? parts[1] : "";
 
-        try {
-            Method method = Command.class.getDeclaredMethod(cmd, String.class, String[].class);
-            Object res = method.invoke(null, cmd, Parser.parse(args));
-            return (res instanceof String) ? (String) res : cmd + " Success";
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Command not found! ";
+    public static int[] getColumnLengths(String[][] data) {
+        int[] lengths = new int[data[0].length];
+        for (int i = 0; i < data.length; i++) {
+            String[] row = data[i];
+            for (int j = 0; j < row.length; j++) {
+                lengths[j] = row[j].length() > lengths[j] ? row[j].length() : lengths[j];
+            }
         }
+
+        return lengths;
     }
 }
 
-// Work in progress
-class Parser {
-    static String[] parse(String args) {
-        if (args == null || args.trim().isEmpty()) {
-            return new String[0];
-        }
-        
-        String[] com_part = args.split(",");
+// Update: class Parser -> class Token
+// Break command into chunks or tokens to parse like a language
+// Also detects syntax errors in user input
+// Example input: DISPLAY student_id, full_name WHERE full_name=foo"
+// Output: [
+//     Token("COMMAND", "DISPLAY"),
+//     Token("IDENTIFIER", "student_id"),
+//     Token("COMMA", ","),
+//     Token("IDENTIFIER", "full_name"),
+//     Token("WHERE", "WHERE"),
+//     Token("IDENTIFIER", "student_id"),
+//     Token("OPERATOR", "="),
+//     Token("STRING", "foo") or TOKEN("NUMBER", 123) if input is number 
+// ]
 
-        for(int i = 0; i<com_part.length; i++) {
-            com_part[i] = com_part[i].trim();
+// COMMAND is the first word in the input.
+// IDENTIFIER is a keyword that represents the column name.
+// OPERATOR are operators such as the equal sign
+class Token {
+    public String type;
+    public String value;
+
+    Token(String type, String value) {
+        this.type = type;
+        this.value = value;
+    }
+
+    static Token[] tokenize(String input) {
+        int i = 0;
+        ArrayList<Token> output = new ArrayList<>(); // ArrayList first since the data will be dynamic
+
+        while (i < input.length()) {
+            char inpChar = input.charAt(i);
+            if (Character.isWhitespace(inpChar)) { // Handle whitespace
+                i++;
+                continue; // ignore white space characters.
+            }
+
+            if (Character.isAlphabetic(inpChar)) { // Handle alphabetic characters
+                StringBuilder value = new StringBuilder(); // using string builder for optimization in appending char to string.
+                while (i < input.length() && (Character.isLetter(input.charAt(i)) || input.charAt(i) == '_')) {
+                    value.append(input.charAt(i));
+                    i++;
+                }
+
+                if (output.size() == 0) {
+                    output.add(new Token("COMMAND", value.toString())); // Treat first word as command.
+                } else if (value.toString().toUpperCase().equals("WHERE")) {
+                    output.add(new Token("WHERE", value.toString()));
+                } else {
+                    output.add(new Token("IDENTIFIER", value.toString())); // Treat the rest as identifiers.
+                }
+                continue;
+            }
+
+            if (inpChar == ',') { // Handle comma
+                output.add(new Token("COMMA", Character.toString(inpChar)));
+                i++;
+                continue;
+            }
+
+            if (inpChar == '"' || inpChar == '\'') { // Handle strings
+                i++;
+                if (i < input.length()) {
+                    StringBuilder value = new StringBuilder(); // string builder to append
+                    while (i < input.length() && input.charAt(i) != inpChar) { // only stop when it goes beyond input or it detects quotation marks.
+                        value.append(input.charAt(i));
+                        i++;
+                    }
+
+                    if (i >= input.length()) { // detect unterminated string literal
+                        throw new RuntimeException("Unterminated string literal");
+                    }
+                    
+                    output.add(new Token("STRING", value.toString()));
+                    i++;
+                }
+
+                continue;
+            }
+
+            if (Character.isDigit(inpChar)) { // Handle digits
+                StringBuilder value = new StringBuilder(); // string builder to append
+                while (i < input.length() && Character.isDigit(input.charAt(i))) {
+                    value.append(input.charAt(i));
+                    i++;
+                }
+                output.add(new Token("NUMBER", value.toString()));
+                continue;
+            }
+
+            if (inpChar == '=') { // operators also include arithmetic but for now, equal sign is only used.
+                output.add(new Token("OPERATOR", Character.toString(inpChar)));
+                i++;
+                continue;
+            }
+
+            if (inpChar == '*') {
+                output.add(new Token("STAR", Character.toString(inpChar)));
+                i++;
+                continue;
+            }
+
+            throw new RuntimeException("Command not found or invalid syntax!"); // if it does not pass to any conditional statements. Return error.
         }
 
-        return com_part; 
+        return output.toArray(new Token[output.size()]);
     }
 }
 
-// handle CSV logic here e.g reading, adding, removing data
-class CSV {
+// handle TSV logic here e.g reading, adding, removing data
+// getHeaderIdx(): For display command. Get index from header name. Return -1 if not found.
+class TSV {
     public List<String[]> data;
     public String[] header;
 
-    CSV(String filePath) { // initialize CSV
-        String DELIMITER = ",";
-
+    TSV(String filePath) { // initialize TSV
         this.data = new ArrayList<>();
         BufferedReader br;
 
         try {
             br = new BufferedReader(new FileReader(filePath));
-            this.header = br.readLine().split(DELIMITER);
+            this.header = br.readLine().split("\t", -1);
 
             String line;
             while ((line = br.readLine()) != null) {
-                String[] values = line.split(DELIMITER);
-                data.add(values);                
+                String[] values = line.split("\t", -1);
+                this.data.add(values);                
             }
         } catch(IOException e) {
             System.out.print(e);
@@ -84,101 +198,112 @@ class CSV {
         }
         return -1;
     }
-
-    public int[] getColumnLengths(int[] headerIdx) {
-        int[] lengths = new int[headerIdx.length];
-        for (int i = 0; i < headerIdx.length; i++) {
-            int idx = headerIdx[i];
-            lengths[i] = this.header[idx].length();
-        }
-        return lengths;
-    }
 }
 
 
 class Command {
-    static void ENROLL(String cmd, String[] args) {
+    static void ENROLL(String cmd, Token[] tokens) {
         // Add logic here
     }
-    static void UNENROLL(String cmd, String[] args) {
+    static void UNENROLL(String cmd, Token[] tokens) {
         // Remove logic here
     }
 
-    static void HELP(String cmd, String[] args) {
-        System.out.println(
-            "ADD id, full_name, course, year_level, gender - adds a row." + "\n" +
-            "REMOVE [id=? || full_name=? || ...] - removes a row with given conditions. To clear the table, type 'REMOVE *'" + "\n" +
-            "DISPLAY [id=? || full_name=? || ...] - displays the table with given conditions. To show the full table, type 'DISPLAY *'"
-        );
+    static String HELP(String cmd, Token[] tokens) {
+        return "\n" +
+            "DISPLAY [header_name, ... || *] WHERE [header_name = \"value\", ...] - displays the table with given conditions. To show the full table, type 'DISPLAY *'" + "\n" +
+            "ENROLL (work in progress)" + "\n" +
+            "UNENROLL (work in progress)" + "\n";
     }
 
-    static String DISPLAY(String cmd, String[] args) {
-        if (args.length == 0) {
-            return "Argument/s needed for display";
-        }
+    static String DISPLAY(String cmd, Token[] tokens) {
+        if (tokens.length == 0) return "Argument/s needed for DISPLAY command";
 
-        // Parse arguments
-        CSV csvData = new CSV("./saved/TableDataSample.csv");
+        // Parse token and check for syntax errors.
+        TSV tsvData = new TSV("./saved/TableDataSample.tsv");
         
         List<Integer> headerList = new ArrayList<Integer>();
         List<Object[]> filterRow = new ArrayList<Object[]>();
 
-        for (int i = 0; i < args.length; i++) {
-            String arg = args[i];
-            int idx = csvData.getHeaderIdx(arg);
-            if (arg.charAt(0) == '*') {
-                for (int j = 0; j < csvData.header.length; j++) {
-                    headerList.add(j);
-                }
-            } else if (idx != -1) {
-                headerList.add(idx);
-            } else if (arg.contains("=")) {
-                String[] parts = arg.split("=");
-                String key = parts[0];
-                String value = parts[1];
+        int i_parser = 1; // start at 1
+        while ( // Parse identifiers and star and commas
+                i_parser < tokens.length && 
+                (tokens[i_parser].type == "IDENTIFIER" || tokens[i_parser].type == "STAR")
+            ) {
+            int idx = tsvData.getHeaderIdx(tokens[i_parser].value); // get index of identifier
 
-                idx = csvData.getHeaderIdx(key);
+            if (tokens[i_parser].type == "STAR")
+                for (int j = 0; j < tsvData.header.length; j++) headerList.add(j); // add all headers
+            else if (idx != -1) headerList.add(idx); // add header
 
-                if (idx == -1) {
-                    System.out.println("header \"" + key + "\" not found.");
-                    continue;
-                }
-
-                // [index, value]
-                Object[] filterValues = new Object[2];
-                filterValues[0] = idx;
-                filterValues[1] = value;
-
-                filterRow.add(filterValues);
-            } else {
-                System.out.println("header \"" + arg + "\" not found.");
-            }
+            i_parser++;
+            if (i_parser < tokens.length && tokens[i_parser].type == "COMMA") { // ignore comma
+                i_parser++;
+                if ( // detect invalid syntax after comma
+                    i_parser < tokens.length &&
+                    !(tokens[i_parser].type == "IDENTIFIER" || tokens[i_parser].type == "STAR")
+                ) return "Invalid syntax near DISPLAY. Invalid input after a comma.";
+            } else break;
         }
 
-        if (headerList.size() == 0) {
-            return "No valid header data";
+        if (headerList.size() == 0) return "No valid header data";
+        if (i_parser < tokens.length) { 
+            if (!tokens[i_parser].type.equals("WHERE")) 
+                return "Invalid syntax after DISPLAY. Use WHERE to filter rows.";
+            i_parser++;
+            if (i_parser >= tokens.length) return "Invalid syntax after WHERE. Empty field.";
+
+            while (i_parser < tokens.length && tokens[i_parser].type == "IDENTIFIER") { // Parse WHERE clause
+                if (i_parser+2 >= tokens.length) return "Invalid syntax near WHERE. Incomplete input";
+
+                // example: student_id = 1
+                String identifier = tokens[i_parser].value; 
+                String equalSign = tokens[i_parser+1].value;
+                String value = tokens[i_parser+2].value;
+
+                if (!equalSign.equals("=")) return "Invalid syntax near WHERE. Use equal sign.";
+                int idx = tsvData.getHeaderIdx(identifier);
+
+                if (!( // catch invalid type
+                    tokens[i_parser+2].type.equals("STRING") || 
+                    tokens[i_parser+2].type.equals("NUMBER")
+                )) return "Invalid syntax near WHERE. Invalid input. Make sure to use numbers or enclose characters in quotation marks.";
+                
+                if (idx == -1) System.out.println("header \"" + identifier + "\" not found. Skipping.");
+                else { // check first if value is a string or number. Then add.
+                    Object[] filterValues = new Object[2];
+                    filterValues[0] = idx;
+                    filterValues[1] = value;
+
+                    filterRow.add(filterValues);
+                }
+
+                i_parser += 3;
+                if (i_parser < tokens.length && tokens[i_parser].type == "COMMA") {
+                    i_parser++;
+                    if ( // detect invalid syntax after comma
+                        i_parser < tokens.length &&
+                        !(tokens[i_parser].type == "IDENTIFIER")
+                    ) return "Invalid syntax near WHERE. Invalid input after a comma.";
+                } else break;
+            }
         }
         
         // convert Integer list to int array
         int[] header = headerList.stream().mapToInt(Integer::valueOf).toArray();
-        int[] maxColumnLengths = csvData.getColumnLengths(header);
+        
+        // Create filtered data
+        ArrayList<String[]> dataFiltered = new ArrayList<>();
 
-        // Create row line
-        String rowSeparator = ProcessCommands.createRowLine("-", "+", maxColumnLengths);
-
-        // Display header
-        System.out.format(rowSeparator);
+        dataFiltered.add(new String[header.length]);
         for (int i = 0; i < header.length; i++) {
-            String h = csvData.header[header[i]];
-            System.out.format("| %-" + maxColumnLengths[i] + "s ", h);
+            dataFiltered.get(0)[i] = tsvData.header[header[i]];
         }
-        System.out.format("|%n");
 
-        // Display data
-        for (int i = 0; i < csvData.data.size(); i++) {
-            String[] row = csvData.data.get(i);
-            
+        for (int i = 0; i < tsvData.data.size(); i++) {
+            String[] row = tsvData.data.get(i);
             boolean match = true;
+
             for (int j = 0; j < filterRow.size(); j++) {
                 int idx = (int) filterRow.get(j)[0];
                 String value = (String) filterRow.get(j)[1];
@@ -190,19 +315,32 @@ class Command {
             }
             
             if (!match) continue;
-            System.out.format(rowSeparator);
 
+            dataFiltered.add(new String[header.length]);
             for (int j = 0; j < header.length; j++) {
-                String data = row[header[j]];
-                System.out.format("| %-" + maxColumnLengths[j] + "s ", data);
+                String data  = row[header[j]];
+                dataFiltered.get(dataFiltered.size()-1)[j] = data;
             }
-            System.out.format("|%n");
+        }
+
+        // Formatting
+        int[] maxColumnLengths = Formatter.getColumnLengths(dataFiltered.toArray(new String[0][]));
+        String rowSeparator = Formatter.createRowLine("-", "+", maxColumnLengths);
+
+        // Display table
+        for (int i = 0; i < dataFiltered.size(); i++) {
+            System.out.format(rowSeparator);
+            String[] row = dataFiltered.get(i);
+            for (int j = 0; j < row.length; j++) {
+                System.out.format("| %-" + maxColumnLengths[j] + "s ", row[j]);
+            }
+            System.out.format("|%n"); // newline
         }
         System.out.format(rowSeparator);
         return "";
     }
 
-    static String MODIFY(String cmd, String args) {
-        return cmd + " " + args + " (Work in progress)";
+    static String MODIFY(String cmd, Token[] tokens) {
+        return "(Work in progress)";
     }
 }

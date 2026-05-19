@@ -1,3 +1,5 @@
+
+
 import java.util.Scanner;
 
 public class Main {
@@ -26,10 +28,8 @@ public class Main {
     }
 
     private static void handleInterrupts() {
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                System.out.println(); // prints extra line when the program is interrupted.
-            }
-        });
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println(); // prints extra line when the program is interrupted.
+        }));
     }
 }

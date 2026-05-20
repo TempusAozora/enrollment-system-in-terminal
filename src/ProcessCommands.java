@@ -21,7 +21,7 @@ public class ProcessCommands {
             Object res = method.invoke(null, tokens, tsvData);
             return (res instanceof String) ? (String) res : cmd + " Success";
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace(); 
+            // e.printStackTrace(); 
             return "Command not found!";
         }
     }

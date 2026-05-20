@@ -11,7 +11,8 @@ public class Command {
 
     static String HELP(Token[] tokens, TSV tsvData) {
         return "\n" +
-            "DISPLAY [header_name, ... || *] WHERE [header_name = \"value\", ...] - displays the table with given conditions. To show the full table, type 'DISPLAY *'" + "\n" +
+            "DISPLAY [header_name, ... || *] WHERE [header_name = \"value\", ...] - displays the table with given conditions. To show the full table, type \"DISPLAY *\"" + "\n" +
+            "MODIFY [header_name = \"value\" WHERE [header_name = \"value\", ...] - change value of a column data. WHERE is used to filter rows." + "\n" +
             "ENROLL (work in progress)" + "\n" +
             "UNENROLL (work in progress)" + "\n";
     }
@@ -44,7 +45,7 @@ public class Command {
             } else break;
         }
 
-        if (headerList.size() == 0) return "No valid header data";
+        if (headerList.size() == 0) return "No valid header column data.";
         if (i_parser < tokens.length) { 
             if (!tokens[i_parser].type.equals("WHERE")) 
                 return "Invalid syntax after DISPLAY. Use WHERE to filter rows.";
@@ -106,7 +107,7 @@ public class Command {
                 int idx = (int) filterRow.get(j)[0];
                 String value = (String) filterRow.get(j)[1];
 
-                if (!value.equals("*") && !row[idx].equals(value)) {
+                if (!value.equals("*") && !row[idx].contains(value)) {
                     match = false;
                     break;
                 }
@@ -182,7 +183,7 @@ public class Command {
             } else break;
         }
 
-        if (Values.size() == 0) return "No valid header data";
+        if (Values.size() == 0) return "No valid header column data.";
         if (i_parser < tokens.length) { 
             if (!tokens[i_parser].type.equals("WHERE")) 
                 return "Invalid syntax after DISPLAY. Use WHERE to filter rows.";
@@ -236,7 +237,7 @@ public class Command {
                 int idx = (int) filterRow.get(j)[0];
                 String value = (String) filterRow.get(j)[1];
 
-                if (!row[idx].equals(value)) {
+                if (!row[idx].contains(value)) {
                     match = false;
                     break;
                 }
@@ -258,7 +259,6 @@ public class Command {
         if (modifiedRows.size() == 0) return "No data modified.";
 
         tsvData.modify(modifiedRows.toArray(new Object[0][]));// modify 
-
 
         return "MODIFY success.";
     }

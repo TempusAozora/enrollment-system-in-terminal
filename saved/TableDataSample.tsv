@@ -1,4 +1,4 @@
-id	full_name	course	year_level	gender
+id	name	course	year	gender
 1001	Juan Dela Cruz	BS Computer Science	2	Male
 1002	Maria Santos	BS Information Technology	2	Female
 1003	Carlos Reyes	BS Civil Engineering	2	Male

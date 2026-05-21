@@ -1,5 +1,3 @@
-
-
 import java.util.ArrayList;
 
 // read tsv file

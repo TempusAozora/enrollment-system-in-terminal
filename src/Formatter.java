@@ -1,5 +1,3 @@
-
-
 // Exclusively for display command.
 public class Formatter {
     static String createRowLine(String str1, String str2, int[] lengths) { // for formatting row line

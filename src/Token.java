@@ -1,17 +1,15 @@
-
-
 import java.util.ArrayList;
 
 // Breaks command into chunks or tokens to parse like a language
 // Array of tokens are used to properly detect syntax errors and be more flexible.
-// Example input: DISPLAY student_id, full_name WHERE full_name=foo"
+// Example input: DISPLAY id, name WHERE full_name="foo"
 // Output from Token.tokenize(input): [
 //     Token("COMMAND", "DISPLAY"),
-//     Token("IDENTIFIER", "student_id"),
+//     Token("IDENTIFIER", "id"),
 //     Token("COMMA", ","),
-//     Token("IDENTIFIER", "full_name"),
+//     Token("IDENTIFIER", "name"),
 //     Token("WHERE", "WHERE"),
-//     Token("IDENTIFIER", "student_id"),
+//     Token("IDENTIFIER", "id"),
 //     Token("OPERATOR", "="),
 //     Token("STRING", "foo") or TOKEN("NUMBER", 123) if input is number 
 // ]
@@ -48,12 +46,42 @@ public class Token {
                     i++;
                 }
 
+                String stringVal = value.toString();
+                String stringValUpper = stringVal.toUpperCase();
+
                 if (output.size() == 0) {
-                    output.add(new Token("COMMAND", value.toString())); // Treat first word as command.
-                } else if (value.toString().toUpperCase().equals("WHERE")) {
-                    output.add(new Token("WHERE", value.toString()));
-                } else {
-                    output.add(new Token("IDENTIFIER", value.toString())); // Treat the rest as identifiers.
+                    output.add(new Token("COMMAND", stringValUpper)); // Treat first word as command.
+                    continue;
+                }
+                
+                switch (stringValUpper) {
+                    case "WHERE":
+                        output.add(new Token("WHERE", stringValUpper));
+                        break;
+                    case "LIKE":
+                        output.add(new Token("LIKE", stringValUpper));
+                        break;
+                    case "AND":
+                        output.add(new Token("LOG_OPERATOR", stringValUpper));
+                        break;
+                    case "OR":
+                        output.add(new Token("LOG_OPERATOR", stringValUpper));
+                        break;
+                    case "SORT":
+                        output.add(new Token("SORT", stringValUpper));
+                        break;
+                    case "BY":
+                        output.add(new Token("BY", stringValUpper));
+                        break;
+                    case "ASCENDING":
+                        output.add(new Token("SORT_ORDER", stringValUpper));
+                        break;
+                    case "DESCENDING":
+                        output.add(new Token("SORT_ORDER", stringValUpper));
+                        break;
+                    default:
+                        output.add(new Token("IDENTIFIER", stringVal)); // Treat the rest as identifiers.
+                        break;
                 }
                 continue;
             }
@@ -94,8 +122,18 @@ public class Token {
                 continue;
             }
 
-            if (inpChar == '=') { // operators also include arithmetic but for now, equal sign is only used.
-                output.add(new Token("OPERATOR", Character.toString(inpChar)));
+            if (inpChar == '=' || inpChar == '>' || inpChar == '<') { // operators also include arithmetic but for now, equal sign is only used.
+                StringBuilder value = new StringBuilder();
+                value.append(inpChar);
+                if (
+                    inpChar != '=' &&
+                    i+1 < input.length() && 
+                    input.charAt(i+1) == '=') {
+                        value.append(input.charAt(i+1)); // for ">=" or "<="
+                        i++;
+                }
+
+                output.add(new Token("REL_OPERATOR", value.toString()));
                 i++;
                 continue;
             }

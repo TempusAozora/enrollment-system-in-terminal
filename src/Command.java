@@ -1,4 +1,3 @@
-
 import java.util.ArrayList;
 
 public class Command {
@@ -22,99 +21,117 @@ public class Command {
 
         // Parse token and check for syntax errors.
         ArrayList<Integer> headerList = new ArrayList<Integer>();
-        ArrayList<Object[]> filterRow = new ArrayList<Object[]>();
+        ConditionChecker conditionChecker = new ConditionChecker();
+        ArrayList<Integer> sortIdx = new ArrayList<Integer>();
+        Boolean isAscending = true; // ascending by default
 
-        int i_parser = 1; // start at 1
-        while ( // Parse identifiers and star and commas
-                i_parser < tokens.length && 
-                (tokens[i_parser].type == "IDENTIFIER" || tokens[i_parser].type == "STAR")
-            ) {
-            int idx = tsvData.getHeaderIdx(tokens[i_parser].value); // get index of identifier
+        Parser parser = new Parser(tokens);
+        parser.consume("COMMAND", "Expected Display Command");
 
-            if (tokens[i_parser].type == "STAR")
-                for (int j = 0; j < tsvData.header.length; j++) headerList.add(j); // add all headers
-            else if (idx != -1) headerList.add(idx); // add header
-
-            i_parser++;
-            if (i_parser < tokens.length && tokens[i_parser].type == "COMMA") { // ignore comma
-                i_parser++;
-                if ( // detect invalid syntax after comma
-                    i_parser < tokens.length &&
-                    !(tokens[i_parser].type == "IDENTIFIER" || tokens[i_parser].type == "STAR")
-                ) return "Invalid syntax near DISPLAY. Trailing comma.";
-            } else break;
+        while (true) { // parse identifiers
+            Token input = parser.consumeAny(new String[]{"IDENTIFIER", "STAR"}, "Invalid Syntax. DISPLAY expects column name or *");
+            if (input.type == "STAR") {
+                for (int j = 0; j < tsvData.header.length; j++) headerList.add(j);
+            } else {
+                int idx = tsvData.getHeaderIdx(input.value);
+                if (idx != -1) headerList.add(idx);
+                else System.out.println("Header name not found. Skipping");
+            }
+            if (!parser.match("COMMA")) break;
+            parser.consume("COMMA", "Invalid Syntax. Comma expected near DISPLAY.");
         }
 
         if (headerList.size() == 0) return "No valid header column data.";
-        if (i_parser < tokens.length) { 
-            if (!tokens[i_parser].type.equals("WHERE")) 
-                return "Invalid syntax after DISPLAY. Use WHERE to filter rows.";
-            i_parser++;
-            if (i_parser >= tokens.length) return "Invalid syntax after WHERE. Empty field.";
 
-            while (i_parser < tokens.length && tokens[i_parser].type == "IDENTIFIER") { // Parse WHERE clause
-                if (i_parser+2 >= tokens.length) return "Invalid syntax near WHERE. Incomplete input";
+        Boolean whereConsumed = false; // avoid duplicate use of WHERE
+        Boolean sortConsumed = false; // avoid duplicate use of SORT BY
 
-                // example: student_id = 1
-                String identifier = tokens[i_parser].value; 
-                String equalSign = tokens[i_parser+1].value;
-                String value = tokens[i_parser+2].value;
-
-                if (!equalSign.equals("=")) return "Invalid syntax near WHERE. Use equal sign.";
-                int idx = tsvData.getHeaderIdx(identifier);
-
-                if (!( // catch invalid type
-                    tokens[i_parser+2].type.equals("STRING") || 
-                    tokens[i_parser+2].type.equals("NUMBER")
-                )) return "Invalid syntax near WHERE. Invalid input. Make sure to use numbers or enclose characters in quotation marks.";
-                
-                if (idx == -1) System.out.println("header \"" + identifier + "\" not found. Skipping.");
-                else { // check first if value is a string or number. Then add.
-                    Object[] filterValues = new Object[2];
-                    filterValues[0] = idx;
-                    filterValues[1] = value;
-
-                    filterRow.add(filterValues);
+        while (!parser.finished() && (!whereConsumed || !sortConsumed)) {
+            if (parser.match("WHERE")) {
+                parser.consume("WHERE", "Invalid Syntax. Expects WHERE or SORT BY");
+                while (true) { // parse where
+                    Token identifier = parser.consume("IDENTIFIER", "Invalid Syntax. Header column name expected near WHERE.");
+                    Token relOperator = parser.consumeAny(new String[]{"REL_OPERATOR", "LIKE"}, "Invalid Syntax. Operator expected expected near WHERE.");
+                    Token stringToken = parser.consumeAny(new String[]{"STRING", "NUMBER"}, "Invalid Syntax. String or number expected. Make sure to enclose string in quotation marks \"\".");
+                    
+                    int idx = tsvData.getHeaderIdx(identifier.value);
+                    Boolean match = parser.match("LOG_OPERATOR");
+                    String logOperator = match ? parser.getCurrentToken().value : "NONE";
+                    
+                    if (idx == -1) System.out.println("header \"" + identifier + "\" not found for WHERE. Skipping.");
+                    else conditionChecker.add(idx, relOperator.value, stringToken.value, logOperator);
+                    
+                    if (!match) break;
+                    parser.consume("LOG_OPERATOR", "Invalid Syntax. Expects AND OR");
                 }
+                whereConsumed = true;
+            } else if (parser.match("SORT")) {
+                parser.consume("SORT", "Invalid Syntax. Expects WHERE or SORT BY");
+                parser.consume("BY", "Invalid Syntax. Expects WHERE or SORT BY");
+                
+                while (true) { // parse sort by
+                    Token identifier = parser.consume("IDENTIFIER", "Invalid Syntax. Header column name expected near SORT BY.");
+                    int idx = tsvData.getHeaderIdx(identifier.value);
 
-                i_parser += 3;
-                if (i_parser < tokens.length && tokens[i_parser].type == "COMMA") {
-                    i_parser++;
-                    if ( // detect invalid syntax after comma
-                        i_parser < tokens.length &&
-                        !(tokens[i_parser].type == "IDENTIFIER")
-                    ) return "Invalid syntax near WHERE. Trailing comma.";
-                } else break;
+                    if (idx == -1) System.out.println("header \"" + identifier + "\" not found for SORT BY. Skipping.");
+                    else sortIdx.add(idx);
+
+                    if (!parser.match("COMMA")) break;
+                    parser.consume("COMMA", "Invalid Syntax. Comma expected near SORT BY.");   
+                }
+                if (parser.match("SORT_ORDER")) { // parse order. Ascending by default
+                    Token order = parser.consume("SORT_ORDER", "Invalid Syntax. Expects ASCENDING or DESCENDING");
+                    isAscending = order.value.equals("ASCENDING");
+                }
+                sortConsumed = true;
             }
         }
+                
+        int[] header = headerList.stream().mapToInt(Integer::valueOf).toArray();    // convert Integer list to int array        
         
-        // convert Integer list to int array
-        int[] header = headerList.stream().mapToInt(Integer::valueOf).toArray();
-        
-        // Create filtered data
-        ArrayList<String[]> dataFiltered = new ArrayList<>();
+        ArrayList<String[]> rowFiltered = new ArrayList<String[]>();                        // Filter rows then sort
+        ArrayList<String[]> dataFiltered = new ArrayList<String[]>();                       // Filter columns
 
-        dataFiltered.add(new String[header.length]);
+        for (int i = 0; i < tsvData.data.size(); i++) {
+            String[] row = tsvData.data.get(i);
+            if (!conditionChecker.checkRow(row)) continue;
+            
+            rowFiltered.add(row);
+        }
+
+        final Boolean isAscendingFinal = isAscending; // declare final variable whether it is ascending or not.
+        if (!sortIdx.isEmpty()) {
+            rowFiltered.sort((rowA, rowB) -> { // sort rows
+                for (int i = 0; i < sortIdx.size(); i++) {
+                    int idx = sortIdx.get(i);
+                    int order = isAscendingFinal ? 1 : -1;
+                    
+                    String a = rowA[idx];
+                    String b = rowB[idx];
+
+                    int result = 0;
+
+                    // check if numeric using regex
+                    boolean aIsNumeric = a.matches("-?\\d+");
+                    boolean bIsNumeric = b.matches("-?\\d+");
+
+                    if (aIsNumeric && bIsNumeric) result = order * Integer.compare(Integer.parseInt(a), Integer.parseInt(b));
+                    else result = order * rowA[idx].compareToIgnoreCase(rowB[idx]);
+                            
+                    if (result != 0) return result;
+                }
+                return 0;
+            });
+        }
+
+        // Finalize table data for display
+        dataFiltered.add(new String[header.length]); // header
         for (int i = 0; i < header.length; i++) {
             dataFiltered.get(0)[i] = tsvData.header[header[i]];
         }
 
-        for (int i = 0; i < tsvData.data.size(); i++) {
-            String[] row = tsvData.data.get(i);
-            boolean match = true;
-
-            for (int j = 0; j < filterRow.size(); j++) {
-                int idx = (int) filterRow.get(j)[0];
-                String value = (String) filterRow.get(j)[1];
-
-                if (!value.equals("*") && !row[idx].contains(value)) {
-                    match = false;
-                    break;
-                }
-            }
-            
-            if (!match) continue;
-
+        for (int i = 0; i < rowFiltered.size(); i++) { // data
+            String[] row = rowFiltered.get(i);
             dataFiltered.add(new String[header.length]);
             for (int j = 0; j < header.length; j++) {
                 String data  = row[header[j]];
@@ -141,109 +158,51 @@ public class Command {
 
     static String MODIFY(Token[] tokens, TSV tsvData) {
         if (tokens.length == 1) return "Argument/s needed for MODIFY command";
+
         // Parse token and check for syntax errors.
-        int i_parser = 1; // start at 1
+        ArrayList<Object[]> Values = new ArrayList<Object[]>();
+        ConditionChecker conditionChecker = new ConditionChecker();
 
-        ArrayList<Object[]> Values = new ArrayList<Object[]>(); // [[columnIdx, value]] for setting values
-        ArrayList<Object[]> filterRow = new ArrayList<Object[]>(); // [[columnIdx, value]] for filtering rows
+        Parser parser = new Parser(tokens);
+        parser.consume("COMMAND", "Expected Modify Command");        // MODIFY command uses while loop just like WHERE, but slightly modified
+        while (true) { // parse MODIFY
+            Token identifier = parser.consume("IDENTIFIER", "Invalid Syntax. Header column name expected near MODIFY.");
+            Token relOperator = parser.consumeAny(new String[]{"REL_OPERATOR", "LIKE"}, "Invalid Syntax. Operator expected expected near MODIFY.");
+            Token stringToken = parser.consumeAny(new String[]{"STRING", "NUMBER"}, "Invalid Syntax. String or number expected. Make sure to enclose string in quotation marks \"\".");
 
-        // MODIFY command uses while loop just like WHERE, but slightly modified
-        while (i_parser < tokens.length && tokens[i_parser].type == "IDENTIFIER") { // Parse identifiers and commas
-            if (i_parser+2 >= tokens.length) return "Invalid syntax near MODIFY. Incomplete input";
+            int idx = tsvData.getHeaderIdx(identifier.value);
+            if (idx == -1) System.out.println("header \"" + identifier + "\" not found MODIFY. Skipping.");
+            else Values.add(new Object[]{idx, stringToken.value});
 
-            // example: student_id = 1
-            String identifier = tokens[i_parser].value; 
-            String equalSign = tokens[i_parser+1].value;
-            String value = tokens[i_parser+2].value;
-
-            if (!equalSign.equals("=")) return "Invalid syntax near MODIFY. Use equal sign.";
-            int idx = tsvData.getHeaderIdx(identifier);
-
-            if (!( // catch invalid type
-                tokens[i_parser+2].type.equals("STRING") || 
-                tokens[i_parser+2].type.equals("NUMBER")
-            )) return "Invalid syntax near MODIFY. Invalid input. Make sure to use numbers or enclose characters in quotation marks.";
-            
-            if (idx == -1) System.out.println("header \"" + identifier + "\" not found. Skipping.");
-            else { // check first if value is a string or number. Then add.
-                Object[] setValues = new Object[2];
-                setValues[0] = idx;
-                setValues[1] = value;
-
-                Values.add(setValues);
-            }
-
-            i_parser += 3;
-            if (i_parser < tokens.length && tokens[i_parser].type == "COMMA") {
-                i_parser++;
-                if ( // detect invalid syntax after comma
-                    i_parser < tokens.length &&
-                    !(tokens[i_parser].type == "IDENTIFIER")
-                ) return "Invalid syntax near WHERE. Trailing comma.";
-            } else break;
+            if (!parser.match("COMMA")) break;
+            parser.consume("COMMA", "Invalid Syntax. Expects comma near MODIFY.");
         }
 
-        if (Values.size() == 0) return "No valid header column data.";
-        if (i_parser < tokens.length) { 
-            if (!tokens[i_parser].type.equals("WHERE")) 
-                return "Invalid syntax after DISPLAY. Use WHERE to filter rows.";
-            i_parser++;
-            if (i_parser >= tokens.length) return "Invalid syntax after WHERE. Empty field.";
-
-            while (i_parser < tokens.length && tokens[i_parser].type == "IDENTIFIER") { // Parse WHERE clause
-                if (i_parser+2 >= tokens.length) return "Invalid syntax near WHERE. Incomplete input";
-
-                // example: student_id = 1
-                String identifier = tokens[i_parser].value; 
-                String equalSign = tokens[i_parser+1].value;
-                String value = tokens[i_parser+2].value;
-
-                if (!equalSign.equals("=")) return "Invalid syntax near WHERE. Use equal sign.";
-                int idx = tsvData.getHeaderIdx(identifier);
-
-                if (!( // catch invalid type
-                    tokens[i_parser+2].type.equals("STRING") || 
-                    tokens[i_parser+2].type.equals("NUMBER")
-                )) return "Invalid syntax near WHERE. Invalid input. Make sure to use numbers or enclose characters in quotation marks.";
+        if (!parser.finished()) {
+            parser.consume("WHERE", "Invalid Syntax. Expects WHERE or SORT BY");
+             while (true) { // parse WHERE 
+                Token identifier = parser.consume("IDENTIFIER", "Invalid Syntax. Header column name expected near WHERE.");
+                Token relOperator = parser.consumeAny(new String[]{"REL_OPERATOR", "LIKE"}, "Invalid Syntax. Operator expected expected near WHERE.");
+                Token stringToken = parser.consumeAny(new String[]{"STRING", "NUMBER"}, "Invalid Syntax. String or number expected. Make sure to enclose string in quotation marks \"\".");
+    
+                int idx = tsvData.getHeaderIdx(identifier.value);
+                Boolean match = parser.match("LOG_OPERATOR");
+                String logOperator = match ? parser.getCurrentToken().value : "NONE";
                 
-                if (idx == -1) System.out.println("header \"" + identifier + "\" not found. Skipping.");
-                else { // check first if value is a string or number. Then add.
-                    Object[] filterValues = new Object[2];
-                    filterValues[0] = idx;
-                    filterValues[1] = value;
-
-                    filterRow.add(filterValues);
-                }
-
-                i_parser += 3;
-                if (i_parser < tokens.length && tokens[i_parser].type == "COMMA") {
-                    i_parser++;
-                    if ( // detect invalid syntax after comma
-                        i_parser < tokens.length &&
-                        !(tokens[i_parser].type == "IDENTIFIER")
-                    ) return "Invalid syntax near WHERE. Trailing comma.";
-                } else break;
-            }
+                if (idx == -1) System.out.println("header \"" + identifier + "\" not found WHERE. Skipping.");
+                else conditionChecker.add(idx, relOperator.value, stringToken.value, logOperator);
+    
+                if (!match) break;
+                parser.consume("LOG_OPERATOR", "Invalid Syntax. Expects AND or OR");
+             }
         }
 
         // Construct object table
         ArrayList<Object[]> modifiedRows = new ArrayList<>();
-
         for (int i = 0; i < tsvData.data.size(); i++) {
             String[] row = tsvData.data.get(i);
-            boolean match = true;
+            if (!conditionChecker.checkRow(row)) continue;
 
-            for (int j = 0; j < filterRow.size(); j++) {
-                int idx = (int) filterRow.get(j)[0];
-                String value = (String) filterRow.get(j)[1];
-
-                if (!row[idx].contains(value)) {
-                    match = false;
-                    break;
-                }
-            }
-            
-            if (!match) continue;
             int[] columnIndices = new int[Values.size()];
             String[] values = new String[Values.size()];
 
@@ -257,7 +216,6 @@ public class Command {
         }
 
         if (modifiedRows.size() == 0) return "No data modified.";
-
         tsvData.modify(modifiedRows.toArray(new Object[0][]));// modify 
 
         return "MODIFY success.";

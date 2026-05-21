@@ -1,11 +1,11 @@
 id	name	course	year	gender
 1001	Juan Dela Cruz	BS Computer Science	2	Male
 1002	Maria Santos	BS Information Technology	2	Female
-1003	Carlos Reyes	BS Civil Engineering	2	Male
+1003	Carlos Reyes Testing	BS Civil Engineering	2	Male
 1004	Angela Garcia	BS Nursing	4	Female
-1005	Mark Aquino	BS Accountancy	2	Male
-1006	Sophia Lim	BS Psychology	2	Female
-1007	Daniel Flores	BS Mechanical Engineering	2	Male
+1005	Mark Aquino	BS Accountancy	1	Male
+1006	Sophia Lim	BS Psychology	1	Female
+1007	foo	BS Mechanical Engineering	1	Male
 1008	Isabella Mendoza	BS Biology	4	Female
-1009	Ethan Torres	BS Mathematics	2	Male
+1009	foo	BS Mathematics	2	Male
 1010	Claire Navarro	BS Education	2	Female

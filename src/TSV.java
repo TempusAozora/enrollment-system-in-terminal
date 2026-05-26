@@ -36,6 +36,58 @@ public class TSV {
         }
     }
 
+    public int idxToAppend(int id) { // utilize binary search since id is sorted.
+        int i = 0;
+        int j = data.size()-1;
+
+        while (i <= j) {
+            int middle = (i+j) / 2;
+            int val = Integer.parseInt(data.get(middle)[0]);
+
+            if (val == id) return -1; // -1 means id exists
+
+            if (id > val) i = middle+1;
+            else j = middle-1;
+        }
+
+        return i; // where row will be appended
+    }
+
+    private void refresh() {
+        BufferedWriter bw;
+        String headers = String.join("\t", this.header); // create one string with headers separated by tabs
+
+        try {
+            bw = new BufferedWriter(new FileWriter(this.filePath));
+            bw.write(headers); // write headers
+
+            for (int i = 0; i < data.size(); i++) {
+                bw.newLine(); // new line every start
+                String[] rowData = this.data.get(i);
+                String row = String.join("\t", rowData); // write row
+                bw.write(row);
+            }
+
+            bw.flush();
+            bw.close();
+        } catch(IOException e) {
+            System.out.print(e);
+        }
+    }
+
+    public void add(String[] rowAdded) {
+        int id = Integer.parseInt(rowAdded[0]);
+        data.add(idxToAppend(id), rowAdded);
+        refresh();
+    }
+
+    public void remove(int[] indices) {
+        for (int i = indices.length-1; i >= 0; i--) {
+            data.remove(indices[i]);
+        }
+        refresh();
+    }
+
     public int getHeaderIdx(String headerName) { // helper function to convert string header to index. If not found return -1.
         for (int i = 0; i < this.header.length; i++) {
             if (this.header[i].equals(headerName)) return i; 

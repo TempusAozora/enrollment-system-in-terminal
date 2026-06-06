@@ -83,7 +83,6 @@ public class Command {
         
         Scanner s = new Scanner(System.in);
         char choice = s.next().charAt(0);
-        s.close();
         
         if (Character.toUpperCase(choice) == 'Y') {
             int[] indicesToBeRemoved = rowIndices.stream().mapToInt(Integer::valueOf).toArray();

@@ -72,11 +72,10 @@ public class Command {
 
         for (int i = 0; i < tsv.data.size(); i++) {
             String[] row = tsv.data.get(i);
-            if (conditionChecker.checkRow(row)) {
+            if (conditionChecker.conditions.size() != 0 && conditionChecker.checkRow(row)) {
                 rowIndices.add(i);
             }
         }
-
         
         if (rowIndices.isEmpty()) return "No student to unenroll.";
         System.out.print("Do you want to unenroll " + rowIndices.size() + " student/s? (Y/n) ");

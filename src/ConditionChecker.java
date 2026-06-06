@@ -36,8 +36,6 @@ public class ConditionChecker {
 	}
 
 	public Boolean checkRow(String[] row) {
-		if (conditions.size() == 0) return false;
-
 		if (conditions.isEmpty()) return true;
 		Boolean currBool = check(conditions.get(0), row[conditions.get(0).idx]);
 

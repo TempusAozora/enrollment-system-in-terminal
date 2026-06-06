@@ -2,7 +2,8 @@ import java.util.ArrayList;
 
 // Breaks command into chunks or tokens to parse like a language
 // Array of tokens are used to properly detect syntax errors and be more flexible.
-// Example input: DISPLAY id, name WHERE full_name="foo"
+//
+// Example input: DISPLAY id, name WHERE name="foo"
 // Output from Token.tokenize(input): [
 //     Token("COMMAND", "DISPLAY"),
 //     Token("IDENTIFIER", "id"),
@@ -13,7 +14,7 @@ import java.util.ArrayList;
 //     Token("OPERATOR", "="),
 //     Token("STRING", "foo") or TOKEN("NUMBER", 123) if input is number 
 // ]
-
+//
 // COMMAND is the first word in the input.
 // IDENTIFIER is a keyword that represents the column name.
 // OPERATOR are operators such as the equal sign

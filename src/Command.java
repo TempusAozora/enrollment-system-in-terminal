@@ -61,7 +61,7 @@ public class Command {
             Boolean match = parser.match("LOG_OPERATOR");
             String logOperator = match ? parser.getCurrentToken().value : "NONE";
             
-            if (idx == -1) System.out.println("header \"" + identifier + "\" not found WHERE. Skipping.");
+            if (idx == -1) System.out.println("header \"" + identifier.value + "\" not found. Skipping.");
             else conditionChecker.add(idx, relOperator.value, stringToken.value, logOperator);
 
             if (!match) break;
@@ -79,7 +79,7 @@ public class Command {
 
         
         if (rowIndices.isEmpty()) return "No student to unenroll.";
-        System.out.print("Do you want to unenroll " + rowIndices.size() + " student/s? (Y/n)");
+        System.out.print("Do you want to unenroll " + rowIndices.size() + " student/s? (Y/n) ");
         
         Scanner s = new Scanner(System.in);
         char choice = s.next().charAt(0);
@@ -97,7 +97,7 @@ public class Command {
     static String HELP(Token[] tokens, TSV tsv) {
         return "\n" +
             "DISPLAY [header_name, ... | *] WHERE [header_name = \"value\" AND | OR ...] SORT BY [header_name, ...] ASCENDING | DESCENDING - displays the table with given conditions. To show the full table, type \"DISPLAY *\"" + "\n" +
-            "DISPLAY [header_name, ... | *] WHERE [header_name = \"value\", ...] - outputs number of data each column." + "\n" +
+            "COUNT [header_name, ... | *] WHERE [header_name = \"value\", ...] - outputs number of data each column." + "\n" +
             "MODIFY [header_name = \"value\" WHERE [header_name = \"value\", ...] - change value of a column data. WHERE is used to filter rows." + "\n" +
             "ENROLL [id, name, course, year, gender] | [name, course, year, gender] - Enroll a student. 5 inputs will include id, 4 inputs will set the id to last index + 1." + "\n" +
             "UNENROLL [header_name = \"value\", ...] - Unenroll a student." + "\n";
@@ -139,7 +139,7 @@ public class Command {
                 Boolean match = parser.match("LOG_OPERATOR");
                 String logOperator = match ? parser.getCurrentToken().value : "NONE";
                 
-                if (idx == -1) System.out.println("header \"" + identifier + "\" not found WHERE. Skipping.");
+                if (idx == -1) System.out.println("header \"" + identifier.value + "\" not found WHERE. Skipping.");
                 else conditionChecker.add(idx, relOperator.value, stringToken.value, logOperator);
     
                 if (!match) break;
@@ -214,7 +214,7 @@ public class Command {
                     Boolean match = parser.match("LOG_OPERATOR");
                     String logOperator = match ? parser.getCurrentToken().value : "NONE";
                     
-                    if (idx == -1) System.out.println("header \"" + identifier + "\" not found for WHERE. Skipping.");
+                    if (idx == -1) System.out.println("header \"" + identifier.value + "\" not found for WHERE. Skipping.");
                     else conditionChecker.add(idx, relOperator.value, stringToken.value, logOperator);
                     
                     if (!match) break;
@@ -229,7 +229,7 @@ public class Command {
                     Token identifier = parser.consume("IDENTIFIER", "Invalid Syntax. Header column name expected near SORT BY.");
                     int idx = tsv.getHeaderIdx(identifier.value);
 
-                    if (idx == -1) System.out.println("header \"" + identifier + "\" not found for SORT BY. Skipping.");
+                    if (idx == -1) System.out.println("header \"" + identifier.value + "\" not found for SORT BY. Skipping.");
                     else sortIdx.add(idx);
 
                     if (!parser.match("COMMA")) break;
@@ -331,7 +331,7 @@ public class Command {
             Token stringToken = parser.consumeAny(new String[]{"STRING", "NUMBER"}, "Invalid Syntax. String or number expected. Make sure to enclose string in quotation marks \"\".");
 
             int idx = tsv.getHeaderIdx(identifier.value);
-            if (idx == -1) System.out.println("header \"" + identifier + "\" not found MODIFY. Skipping.");
+            if (idx == -1) System.out.println("header \"" + identifier.value + "\" not found MODIFY. Skipping.");
             else Values.add(new Object[]{idx, stringToken.value});
 
             if (!parser.match("COMMA")) break;
@@ -349,7 +349,7 @@ public class Command {
                 Boolean match = parser.match("LOG_OPERATOR");
                 String logOperator = match ? parser.getCurrentToken().value : "NONE";
                 
-                if (idx == -1) System.out.println("header \"" + identifier + "\" not found WHERE. Skipping.");
+                if (idx == -1) System.out.println("header \"" + identifier.value + "\" not found WHERE. Skipping.");
                 else conditionChecker.add(idx, relOperator.value, stringToken.value, logOperator);
     
                 if (!match) break;
